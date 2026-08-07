@@ -1,0 +1,93 @@
+# Nexo · Backend
+
+API en Elixir/Phoenix para el **acceso especial docente** de Nexo.
+Diseño y decisiones: [`../nexo/docs/plan-backend-docentes.md`](../nexo/docs/plan-backend-docentes.md).
+
+| | |
+|---|---|
+| Runtime | Elixir 1.19 · OTP 28 · Phoenix 1.8 |
+| Base de datos | MongoDB (Atlas) |
+| Despliegue | Release OTP en contenedor (`Dockerfile` multi-stage) |
+
+## Alcance actual (fase F1)
+
+- **Login docente** verificado contra SIGMA (`Login/SesionV1`). Las credenciales
+  UPLA **no se almacenan**: se usan una sola vez para confirmar identidad y que
+  la cuenta es docente, y se descartan.
+- **Allowlist en dos pasos.** Todo docente nace `pendiente` — puede autenticarse
+  pero no ver datos — hasta que un administrador lo pasa a `autorizado`.
+  Suspenderlo revoca sus sesiones de inmediato.
+- **Tokens propios.** Acceso firmado de 15 minutos y refresh opaco de 30 días
+  con rotación: del refresh solo se guarda su hash, y el usado queda revocado.
+- **Auditoría.** Cada acción sensible se registra con actor, IP y fecha
+  (requisito de la Ley N.º 29733 de protección de datos personales).
+
+## Puesta en marcha
+
+```bash
+cp .env.example .env    # completa MONGODB_URI, MONGODB_URI_TEST y ADMIN_API_KEY
+mix setup               # dependencias
+mix phx.server          # http://localhost:4000
+```
+
+Los índices de MongoDB (unicidad, TTL de refresh tokens, orden de auditoría) se
+crean solos al arrancar. No hay migraciones que ejecutar.
+
+```bash
+mix test        # suite completa
+mix precommit   # compila sin warnings, formatea y corre los tests
+```
+
+> Los tests usan la base indicada en `MONGODB_URI_TEST` y un SIGMA simulado:
+> **nunca** tocan datos reales ni los servidores de la universidad. La suite
+> limpia sus colecciones en cada corrida, así que esa URI debe apuntar a una
+> base distinta de la de desarrollo.
+
+## Docker
+
+```bash
+docker compose up --build
+```
+
+Compose lee las variables de `.env` y exige `SECRET_KEY_BASE`
+(`mix phx.gen.secret`). No se levanta ningún motor de base de datos local: la
+persistencia vive en Atlas.
+
+## API
+
+| Método | Ruta | Autenticación |
+|---|---|---|
+| `GET` | `/health` | — |
+| `POST` | `/api/v1/auth/teacher/login` · `{usuario, clave}` | — |
+| `POST` | `/api/v1/auth/refresh` · `{refresh_token}` | — |
+| `GET` | `/api/v1/teacher/me` | `Authorization: Bearer` |
+| `GET` | `/api/v1/admin/teachers` | `x-admin-key` |
+| `PUT` | `/api/v1/admin/teachers/:id/status` · `{estado}` | `x-admin-key` |
+| `GET` | `/api/v1/admin/audit?limit=100` | `x-admin-key` |
+
+`estado` ∈ `pendiente` · `autorizado` · `suspendido`.
+
+## Configuración
+
+Ningún secreto se versiona. `.env` está en `.gitignore` y excluido del contexto
+de build de Docker; `.env.example` documenta las variables.
+
+| Variable | Uso |
+|---|---|
+| `MONGODB_URI` | Conexión a MongoDB (obligatoria) |
+| `MONGODB_URI_TEST` | Base de pruebas (solo `MIX_ENV=test`) |
+| `ADMIN_API_KEY` | Cabecera `x-admin-key` del área de administración |
+| `SECRET_KEY_BASE` | Firma de tokens y cookies (solo producción) |
+| `SIGMA_BASE_URL` | Sobrescribe el host de SIGMA |
+| `PHX_HOST`, `PORT` | Host público y puerto |
+
+En producción el arranque falla si falta `MONGODB_URI`, `ADMIN_API_KEY` o
+`SECRET_KEY_BASE`: es preferible no levantar el servicio a levantarlo con
+valores por defecto inseguros.
+
+## Siguientes fases
+
+- **F2** — Secciones y notas/asistencia del docente (proxy autorizado sobre
+  SIGMA, con scoping por sección y auditoría por consulta).
+- **F3** — Consentimiento del estudiante desde la app y snapshots de horario,
+  pagos y avance académico.

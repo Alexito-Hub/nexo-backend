@@ -1,0 +1,48 @@
+# Artefactos de compilación de Mix.
+/_build/
+
+# Cobertura de "mix test --cover".
+/cover/
+
+# Dependencias descargadas por Mix.
+/deps/
+
+# Documentación generada (ExDoc).
+/doc/
+
+# Archivos .fetch de dependencias locales.
+/.fetch
+
+# Volcado de la VM si Erlang cae.
+erl_crash.dump
+
+# Archivos de archive ("mix archive.build").
+*.ez
+
+# Temporales, por ejemplo de los tests.
+/tmp/
+
+# Tarball del paquete ("mix hex.build").
+nexo-*.tar
+
+# Secretos: cadenas de conexión, claves de admin y de firma.
+.env
+.env.*
+!.env.example
+
+# Certificados y llaves.
+*.pem
+*.key
+*.crt
+
+# Releases generadas localmente.
+/rel/artifacts/
+
+# Editores y sistema operativo.
+.elixir_ls/
+.lexical/
+.vscode/
+.idea/
+*.iml
+.DS_Store
+Thumbs.db

@@ -1,0 +1,8 @@
+# Normaliza los finales de línea: LF en el repositorio, nativo en el disco.
+* text=auto eol=lf
+
+# Los scripts del release y del contenedor deben conservar LF siempre.
+rel/overlays/bin/server text eol=lf
+rel/overlays/bin/*.bat text eol=crlf
+Dockerfile text eol=lf
+*.sh text eol=lf
