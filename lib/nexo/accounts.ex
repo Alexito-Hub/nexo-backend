@@ -76,6 +76,32 @@ defmodule Nexo.Accounts do
 
   def set_teacher_status(_teacher, _status, _by), do: {:error, :invalid_status}
 
+  @doc """
+  Guarda el token de sesión de SIGMA obtenido en el login, cifrado en reposo.
+  No es una credencial (la contraseña nunca se guarda), pero permite consultar
+  en nombre del docente, así que no vive en claro.
+  """
+  def put_sigma_token(%{} = teacher, token) when is_binary(token) and token != "" do
+    apply_updates(teacher, %{
+      "sigma_token" => %BSON.Binary{binary: Nexo.Vault.encrypt(token)},
+      "sigma_token_at" => Db.now(),
+      "updated_at" => Db.now()
+    })
+  end
+
+  def put_sigma_token(teacher, _token), do: {:ok, teacher}
+
+  @doc "Token de SIGMA descifrado, o `:error` si no hay o no se puede leer."
+  def sigma_token(%{"sigma_token" => %BSON.Binary{binary: data}}), do: Nexo.Vault.decrypt(data)
+  def sigma_token(_), do: :error
+
+  @doc "Olvida el token de SIGMA (caducó o el docente cerró sesión)."
+  def clear_sigma_token(%{"_id" => id}) do
+    Mongo.update_one(Db.conn(), @collection, %{_id: id}, %{
+      "$unset" => %{"sigma_token" => "", "sigma_token_at" => ""}
+    })
+  end
+
   defp apply_updates(%{"_id" => id} = teacher, updates) do
     with {:ok, _} <-
            Mongo.update_one(Db.conn(), @collection, %{_id: id}, %{"$set" => updates}) do

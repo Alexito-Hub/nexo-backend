@@ -35,11 +35,15 @@ defmodule NexoWeb.Router do
 
     get "/me", TeacherController, :me
 
-    # Fase 2 (requiere allowlist activa): secciones, alumnos, notas.
+    # Datos académicos: exigen allowlist activa y quedan acotados a las
+    # secciones del propio docente (ver `Nexo.Teaching`).
     scope "/" do
       pipe_through :teacher_authorized
-      # get "/sections", SectionController, :index
-      # get "/students/:codigo/grades", StudentDataController, :grades
+
+      get "/sections", SectionController, :index
+      get "/sections/:cle_auto/students", SectionController, :students
+      get "/sections/:cle_auto/grades", SectionController, :grades
+      get "/sections/:cle_auto/students/:codigo/grades", SectionController, :student_grades
     end
   end
 

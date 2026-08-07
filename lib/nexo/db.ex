@@ -46,6 +46,10 @@ defmodule Nexo.Db do
       %{key: %{expires_at: 1}, name: "expires_ttl", expireAfterSeconds: 0}
     ])
 
+    create_indexes("teacher_sections", [
+      %{key: %{teacher_id: 1, cle_auto: 1}, name: "teacher_section_unique", unique: true}
+    ])
+
     create_indexes("audit_log", [
       %{key: %{inserted_at: -1}, name: "inserted_at_idx"},
       %{key: %{actor_id: 1}, name: "actor_id_idx"}

@@ -12,6 +12,9 @@ defmodule NexoWeb.AuthController do
     case Sigma.verify_login(usuario, clave) do
       {:ok, %{teacher?: true} = profile} ->
         {:ok, teacher} = Accounts.upsert_teacher_from_sigma(profile)
+        # El token de SIGMA (no la contraseña) se guarda cifrado: es lo que
+        # permite consultar secciones y notas en nombre del docente.
+        {:ok, teacher} = Accounts.put_sigma_token(teacher, profile[:token])
         teacher_id = Db.id_to_string(teacher["_id"])
 
         Audit.log(:teacher_login, %{

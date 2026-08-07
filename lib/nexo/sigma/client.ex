@@ -1,12 +1,16 @@
 defmodule Nexo.Sigma.Client do
   @moduledoc """
-  Cliente HTTP real contra `POST /api/Login/SesionV1` de SIGMA.
+  Cliente HTTP real contra la API de SIGMA.
 
-  Réplica del contrato que ya usa la app Flutter: la clave viaja en base64 y
-  `nomSys` identifica el sistema. Un `success: false` es señal POSITIVA de
-  credenciales inválidas; cualquier fallo de red/HTML se reporta como
-  `:unavailable` para no confundir caídas de SIGMA con contraseñas malas
-  (misma distinción que hace la app).
+  Réplica del contrato que ya usa la app Flutter: la clave viaja en base64,
+  `nomSys` identifica el sistema y las respuestas vienen envueltas en
+  `{success, data, mensaje}`.
+
+  Un `success: false` en el login es señal POSITIVA de credenciales inválidas;
+  cualquier fallo de red o respuesta no-JSON se reporta como `:unavailable`
+  para no confundir una caída de SIGMA con una contraseña equivocada (misma
+  distinción que hace la app). Un 401 en las consultas significa que el token
+  de sesión caducó: `:session_expired`.
   """
   @behaviour Nexo.Sigma
 
@@ -28,7 +32,8 @@ defmodule Nexo.Sigma.Client do
            code: to_string(info["codigo"] || usuario_id),
            first_name: to_string(info["nombres"] || ""),
            last_name: to_string(info["apellidos"] || ""),
-           teacher?: truthy?(info["isDocente"])
+           teacher?: truthy?(info["isDocente"]),
+           token: data["token"]
          }}
 
       {:ok, %Req.Response{status: 200, body: %{"success" => false}}} ->
@@ -38,6 +43,79 @@ defmodule Nexo.Sigma.Client do
         {:error, :unavailable}
     end
   end
+
+  @impl true
+  def list_sections(token) do
+    with {:ok, rows} <- get(token, "/Teacher/GetAsignaturaDocenteV1") do
+      {:ok, Enum.map(rows, &to_section/1)}
+    end
+  end
+
+  @impl true
+  def list_section_students(token, cle_auto) do
+    with {:ok, rows} <-
+           get(token, "/Teacher/ListarEstudianteComple", codSaltem: cle_auto) do
+      {:ok, Enum.map(rows, &to_student/1)}
+    end
+  end
+
+  @impl true
+  def section_grades(token, cle_auto, unit) do
+    with {:ok, rows} <-
+           get(token, "/Teacher/NotasEstudianteResumenV1",
+             tipoCalificacion: unit,
+             cleAuto: cle_auto
+           ) do
+      {:ok, Enum.map(rows, &to_student/1)}
+    end
+  end
+
+  defp get(token, path, params \\ []) do
+    case Req.get(req(), url: path, params: params, auth: {:bearer, token}) do
+      {:ok, %Req.Response{status: 200, body: %{"data" => data}}} when is_list(data) ->
+        {:ok, Enum.filter(data, &is_map/1)}
+
+      {:ok, %Req.Response{status: 200, body: %{"success" => true}}} ->
+        {:ok, []}
+
+      {:ok, %Req.Response{status: status}} when status in [401, 403] ->
+        {:error, :session_expired}
+
+      _other ->
+        {:error, :unavailable}
+    end
+  end
+
+  defp to_section(row) do
+    %{
+      id: str(row["cleAuto"] || row["id"] || row["saltemId"] || row["nrc"]),
+      code: str(row["codigo"] || row["asg_Id"]),
+      subject: str(row["asignatura"] || row["nombreAsignatura"]),
+      section: str(row["seccion"]),
+      periodo: str(row["periodo"] || row["descripcionPeriodo"]),
+      enrolled: int(row["matriculados"] || row["cantMatriculados"])
+    }
+  end
+
+  defp to_student(row) do
+    %{
+      code: str(row["codigo"] || row["est_Id"]),
+      first_name: str(row["nombres"]),
+      last_name: str(row["apellidos"]),
+      attendance: opt(row["asistencia"]),
+      grade: opt(row["nota"] || row["promedio"])
+    }
+  end
+
+  defp str(nil), do: ""
+  defp str(v), do: to_string(v)
+
+  defp opt(nil), do: nil
+  defp opt(v), do: to_string(v)
+
+  defp int(v) when is_integer(v), do: v
+  defp int(v) when is_binary(v), do: with({n, _} <- Integer.parse(v), do: n)
+  defp int(_), do: nil
 
   defp truthy?(true), do: true
   defp truthy?(1), do: true
