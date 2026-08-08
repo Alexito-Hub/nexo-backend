@@ -25,6 +25,8 @@ defmodule NexoWeb.Router do
     pipe_through :api
 
     get "/health", HealthController, :show
+    get "/privacidad", LegalController, :privacy
+    get "/privacy", LegalController, :privacy
   end
 
   scope "/api/v1", NexoWeb do
