@@ -23,7 +23,11 @@ defmodule Nexo.Consents do
   @snapshots "student_snapshots"
 
   @scope "piloto_desarrollo"
-  @modules ~w(horario pagos avance)
+
+  # Enumerados uno a uno a propósito: un consentimiento para "datos académicos
+  # y otros" no es informado y por tanto no es válido. Si más adelante hace
+  # falta otro tipo de dato, se añade aquí y se vuelve a pedir permiso.
+  @modules ~w(horario notas pagos avance)
 
   def scope, do: @scope
   def modules, do: @modules

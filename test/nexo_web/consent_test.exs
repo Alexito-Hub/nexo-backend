@@ -47,7 +47,7 @@ defmodule NexoWeb.ConsentTest do
     res = student(conn) |> get("/api/v1/student/consent") |> json_response(200)
 
     assert res["consentimiento"] == %{"otorgado" => false, "modulos" => []}
-    assert res["modulos_disponibles"] == ["horario", "pagos", "avance"]
+    assert res["modulos_disponibles"] == ["horario", "notas", "pagos", "avance"]
   end
 
   test "el estudiante autoriza módulos y queda registrado con fecha", %{conn: conn} do
