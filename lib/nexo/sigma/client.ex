@@ -36,13 +36,14 @@ defmodule Nexo.Sigma.Client do
            token: data["token"]
          }}
 
-      # SIGMA responde 401 (a veces 200 con success:false) cuando la
-      # contraseña es incorrecta: ambas son credenciales inválidas, no una
-      # caída del servicio.
+      # SIGMA rechaza las credenciales de varias formas según el caso: 401
+      # (contraseña incorrecta) o un cuerpo `success:false` con estado 200/400
+      # (usuario inexistente o desactivado). Todas son credenciales inválidas,
+      # no una caída del servicio.
       {:ok, %Req.Response{status: 401}} ->
         {:error, :invalid_credentials}
 
-      {:ok, %Req.Response{status: 200, body: %{"success" => false}}} ->
+      {:ok, %Req.Response{body: %{"success" => false}}} ->
         {:error, :invalid_credentials}
 
       _other ->
