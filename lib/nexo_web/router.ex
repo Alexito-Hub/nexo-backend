@@ -9,6 +9,10 @@ defmodule NexoWeb.Router do
     plug NexoWeb.AuthPlug
   end
 
+  pipeline :student_auth do
+    plug NexoWeb.StudentAuthPlug
+  end
+
   pipeline :teacher_authorized do
     plug NexoWeb.RequireAuthorizedPlug
   end
@@ -27,7 +31,19 @@ defmodule NexoWeb.Router do
     pipe_through :api
 
     post "/auth/teacher/login", AuthController, :teacher_login
+    post "/auth/student/login", AuthController, :student_login
     post "/auth/refresh", AuthController, :refresh
+  end
+
+  # Lado estudiante: gestiona su consentimiento y sube sus propios datos.
+  scope "/api/v1/student", NexoWeb do
+    pipe_through [:api, :student_auth]
+
+    get "/consent", ConsentController, :show
+    put "/consent", ConsentController, :update
+    delete "/consent", ConsentController, :revoke
+    get "/consent/history", ConsentController, :history
+    put "/snapshots/:modulo", ConsentController, :put_snapshot
   end
 
   scope "/api/v1/teacher", NexoWeb do
@@ -44,6 +60,12 @@ defmodule NexoWeb.Router do
       get "/sections/:cle_auto/students", SectionController, :students
       get "/sections/:cle_auto/grades", SectionController, :grades
       get "/sections/:cle_auto/students/:codigo/grades", SectionController, :student_grades
+
+      # Datos que el estudiante compartió voluntariamente: sin consentimiento
+      # vigente no existen para el docente.
+      get "/sections/:cle_auto/students/:codigo/shared/:modulo",
+          SectionController,
+          :student_snapshot
     end
   end
 

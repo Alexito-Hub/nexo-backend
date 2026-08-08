@@ -34,6 +34,23 @@ defmodule NexoWeb.TeacherAuthTest do
            )
   end
 
+  test "un documento preautorizado entra ya autorizado, sin aprobación manual",
+       %{conn: conn} do
+    res = login(conn, "PRE-001", "ok") |> json_response(200)
+
+    assert res["teacher"]["estado"] == "autorizado"
+    assert Accounts.get_teacher_by_code("PRE-001")["authorized_by"] == "preautorizado"
+  end
+
+  test "la preautorización no resucita a un docente suspendido", %{conn: conn} do
+    login(conn, "PRE-001", "ok")
+    teacher = Accounts.get_teacher_by_code("PRE-001")
+    {:ok, _} = Accounts.set_teacher_status(teacher, "suspendido", "admin")
+
+    res = login(conn, "PRE-001", "ok") |> json_response(200)
+    assert res["teacher"]["estado"] == "suspendido"
+  end
+
   test "una cuenta de estudiante es rechazada", %{conn: conn} do
     assert json_response(login(conn, "E001", "ok"), 403)["error"] == "no_docente"
   end

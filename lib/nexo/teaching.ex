@@ -65,6 +65,49 @@ defmodule Nexo.Teaching do
     end
   end
 
+  @doc """
+  Datos que el estudiante compartió voluntariamente (horario, pagos, avance).
+
+  Triple condición: la sección debe ser del docente, el estudiante debe estar
+  matriculado en ella y debe existir un consentimiento vigente para ese módulo.
+  Estos datos no vienen de SIGMA —el docente no los tendría de otro modo—, así
+  que sin consentimiento sencillamente no existen para él.
+  """
+  def student_snapshot(teacher, cle_auto, student_code, module) do
+    with {:ok, token} <- token_for(teacher),
+         :ok <- authorize_section(teacher, cle_auto),
+         {:ok, students} <- handle(teacher, Sigma.list_section_students(token, cle_auto)),
+         true <- Enum.any?(students, &(&1.code == student_code)) do
+      case Nexo.Consents.get_snapshot(student_code, module) do
+        {:ok, snapshot} ->
+          audit(
+            teacher,
+            :student_snapshot_read,
+            %{section: cle_auto, modulo: module},
+            student_code
+          )
+
+          {:ok, snapshot}
+
+        {:error, :not_granted} ->
+          audit(
+            teacher,
+            :student_snapshot_denied,
+            %{section: cle_auto, modulo: module},
+            student_code
+          )
+
+          {:error, :not_granted}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    else
+      false -> {:error, :not_found}
+      other -> other
+    end
+  end
+
   # --- Scoping -------------------------------------------------------------
 
   defp authorize_section(teacher, cle_auto) do

@@ -15,6 +15,16 @@ defmodule Nexo.Db do
   end
 
   @doc """
+  Opciones de conexión. Atlas (`mongodb+srv://`) exige TLS con verificación
+  estricta del certificado; un MongoDB local de pruebas va en claro, así que
+  las opciones TLS solo se añaden cuando hacen falta.
+  """
+  def connection_opts do
+    base = [name: @conn, url: url(), pool_size: pool_size()]
+    if tls?(url()), do: base ++ [ssl_opts: ssl_opts()], else: base
+  end
+
+  @doc """
   Opciones TLS para Atlas: CA del sistema operativo + verificación estricta
   del certificado con soporte de wildcard (los hosts de Atlas usan `*.mongodb.net`).
   """
@@ -29,7 +39,26 @@ defmodule Nexo.Db do
     ]
   end
 
+  defp tls?(url) do
+    String.starts_with?(url, "mongodb+srv://") or url =~ "tls=true" or url =~ "ssl=true"
+  end
+
+  defp pool_size, do: Application.get_env(:nexo, :mongodb_pool_size, 5)
+
   def conn, do: @conn
+
+  @doc "Nombre de la base de datos según la URI configurada."
+  def database_name do
+    url()
+    |> URI.parse()
+    |> Map.get(:path)
+    |> to_string()
+    |> String.trim_leading("/")
+    |> case do
+      "" -> "(sin nombre en la URI)"
+      name -> name
+    end
+  end
 
   def ensure_indexes_async do
     Task.start(fn -> ensure_indexes() end)
@@ -48,6 +77,21 @@ defmodule Nexo.Db do
 
     create_indexes("teacher_sections", [
       %{key: %{teacher_id: 1, cle_auto: 1}, name: "teacher_section_unique", unique: true}
+    ])
+
+    create_indexes("students", [
+      %{key: %{code: 1}, name: "code_unique", unique: true}
+    ])
+
+    # Un consentimiento vigente por estudiante y ámbito; el histórico de
+    # revocaciones se conserva, por eso el índice no es único.
+    create_indexes("consents", [
+      %{key: %{student_code: 1, scope: 1}, name: "student_scope_idx"},
+      %{key: %{granted_at: -1}, name: "granted_at_idx"}
+    ])
+
+    create_indexes("student_snapshots", [
+      %{key: %{student_code: 1, module: 1}, name: "student_module_unique", unique: true}
     ])
 
     create_indexes("audit_log", [

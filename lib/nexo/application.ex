@@ -11,7 +11,7 @@ defmodule Nexo.Application do
       NexoWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:nexo, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Nexo.PubSub},
-      {Mongo, [name: :mongo, url: Nexo.Db.url(), pool_size: 5, ssl_opts: Nexo.Db.ssl_opts()]},
+      {Mongo, Nexo.Db.connection_opts()},
       # Start to serve requests, typically the last entry
       NexoWeb.Endpoint
     ]

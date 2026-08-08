@@ -1,6 +1,8 @@
 name: nexo-backend
 
 services:
+  # API. Los datos reales viven en MongoDB Atlas: aquí no se levanta ningún
+  # motor de base de datos para producción.
   api:
     build:
       context: .
@@ -9,11 +11,14 @@ services:
     ports:
       - "${PORT:-4000}:4000"
     environment:
-      # MongoDB Atlas gestiona la base: no se levanta ningún motor local.
-      MONGODB_URI: ${MONGODB_URI:?define MONGODB_URI en .env}
-      ADMIN_API_KEY: ${ADMIN_API_KEY:?define ADMIN_API_KEY en .env}
-      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?genera uno con "mix phx.gen.secret"}
+      # Si falta alguna, el arranque falla con un mensaje explícito
+      # (ver `config/runtime.exs`): mejor no levantar el servicio que
+      # levantarlo con valores por defecto inseguros.
+      MONGODB_URI: ${MONGODB_URI:-}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
       SIGMA_BASE_URL: ${SIGMA_BASE_URL:-https://sigma.upla.edu.pe/api}
+      AUTHORIZED_TEACHERS: ${AUTHORIZED_TEACHERS:-}
       PHX_HOST: ${PHX_HOST:-localhost}
       PHX_SERVER: "true"
       PORT: "4000"

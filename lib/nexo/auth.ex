@@ -1,10 +1,11 @@
 defmodule Nexo.Auth do
   @moduledoc """
-  Tokens propios del backend.
+  Tokens propios del backend, tanto para docentes como para estudiantes.
 
-  - Acceso: `Phoenix.Token` firmado, vida corta (15 min). Lleva el id del
-    docente; el estado (allowlist) se relee de la BD en cada request, así una
-    suspensión surte efecto inmediato.
+  - Acceso: `Phoenix.Token` firmado, vida corta (15 min). Lleva el tipo de
+    sujeto y su id; el estado (allowlist, consentimiento) se relee de la base
+    en cada petición, así una suspensión o una revocación surten efecto
+    inmediato aunque el token siga vigente.
   - Refresh: token opaco de 30 días en la colección `refresh_tokens`; solo se
     guarda su hash SHA-256, es revocable y rota en cada uso (rotación atómica
     vía `find_one_and_update`). Un índice TTL purga los vencidos.
@@ -14,27 +15,35 @@ defmodule Nexo.Auth do
   @collection "refresh_tokens"
   @access_ttl 15 * 60
   @refresh_ttl_days 30
-  @salt "teacher access v1"
+  @salt "nexo access v2"
+
+  @type subject :: :teacher | :student
 
   def access_ttl_seconds, do: @access_ttl
 
-  def sign_access_token(teacher_id) do
-    Phoenix.Token.sign(NexoWeb.Endpoint, @salt, %{teacher_id: teacher_id})
+  @spec sign_access_token(subject(), String.t()) :: String.t()
+  def sign_access_token(type, id) when type in [:teacher, :student] do
+    Phoenix.Token.sign(NexoWeb.Endpoint, @salt, %{type: type, id: id})
   end
 
-  def verify_access_token(token) do
+  @spec verify_access_token(String.t()) ::
+          {:ok, %{type: subject(), id: String.t()}} | {:error, :invalid_token}
+  def verify_access_token(token) when is_binary(token) do
     case Phoenix.Token.verify(NexoWeb.Endpoint, @salt, token, max_age: @access_ttl) do
-      {:ok, %{teacher_id: id}} -> {:ok, id}
+      {:ok, %{type: type, id: id}} -> {:ok, %{type: type, id: id}}
       _ -> {:error, :invalid_token}
     end
   end
 
-  def issue_refresh_token(teacher_id) do
+  def verify_access_token(_), do: {:error, :invalid_token}
+
+  def issue_refresh_token(type, id) when type in [:teacher, :student] do
     raw = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
 
     {:ok, _} =
       Mongo.insert_one(Db.conn(), @collection, %{
-        teacher_id: teacher_id,
+        subject_type: to_string(type),
+        subject_id: id,
         token_hash: hash(raw),
         expires_at: DateTime.add(Db.now(), @refresh_ttl_days, :day),
         revoked_at: nil,
@@ -57,8 +66,12 @@ defmodule Nexo.Auth do
       )
 
     case result do
-      {:ok, %Mongo.FindAndModifyResult{value: %{"teacher_id" => teacher_id}}} ->
-        {:ok, %{teacher_id: teacher_id, new_refresh: issue_refresh_token(teacher_id)}}
+      {:ok,
+       %Mongo.FindAndModifyResult{
+         value: %{"subject_type" => subject_type, "subject_id" => id}
+       }} ->
+        type = String.to_existing_atom(subject_type)
+        {:ok, %{type: type, id: id, new_refresh: issue_refresh_token(type, id)}}
 
       _ ->
         {:error, :invalid_token}
@@ -67,11 +80,12 @@ defmodule Nexo.Auth do
 
   def exchange_refresh_token(_), do: {:error, :invalid_token}
 
-  def revoke_all_for_teacher(teacher_id) do
+  @doc "Corta todas las sesiones de un sujeto (suspensión, cierre de sesión)."
+  def revoke_all(type, id) do
     Mongo.update_many(
       Db.conn(),
       @collection,
-      %{teacher_id: teacher_id, revoked_at: nil},
+      %{subject_type: to_string(type), subject_id: id, revoked_at: nil},
       %{"$set" => %{revoked_at: Db.now()}}
     )
   end

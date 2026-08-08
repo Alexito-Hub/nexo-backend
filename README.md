@@ -24,30 +24,66 @@ Diseño y decisiones: [`../nexo/docs/plan-backend-docentes.md`](../nexo/docs/pla
   cada consulta se valida contra su lista de secciones antes de salir a la red
   y los intentos sobre secciones ajenas se rechazan y se registran. No nos
   apoyamos en que SIGMA también lo limite.
+- **Consentimiento del estudiante.** Los datos que SIGMA *no* da al docente
+  —horario, pagos, avance— solo existen si el estudiante los comparte desde su
+  app. Cada decisión se guarda con fecha, versión del texto e IP, y **revocar
+  borra los datos**, no solo marca una casilla.
 - **Auditoría.** Cada acción sensible se registra con actor, IP y fecha; las
   lecturas de datos de un alumno quedan además asociadas a su código
   (requisito de la Ley N.º 29733 de protección de datos personales).
+
+## Dónde vive cada dato
+
+Todo en MongoDB; nada en disco local ni en el dispositivo.
+
+| Colección | Contenido |
+|---|---|
+| `teachers` | Docentes, su estado en la allowlist y su token de SIGMA cifrado |
+| `teacher_sections` | Secciones de cada docente — la base del scoping |
+| `students` | Solo código y nombre de quien consiente |
+| `consents` | Cada decisión de consentimiento, con fecha y versión del texto |
+| `student_snapshots` | Datos compartidos, cifrados y borrados al revocar |
+| `refresh_tokens` | Hash de los refresh, con expiración automática |
+| `audit_log` | Quién accedió a qué y cuándo |
+
+El backend **no consulta la Intranet en nombre del estudiante**: solo recibe lo
+que su propia app decide subir. Así cada dato almacenado tiene un
+consentimiento asociado y verificable.
 
 ## Puesta en marcha
 
 ```bash
 cp .env.example .env    # completa MONGODB_URI, MONGODB_URI_TEST y ADMIN_API_KEY
 mix setup               # dependencias
+mix nexo.setup          # crea colecciones e índices en MongoDB
 mix phx.server          # http://localhost:4000
 ```
 
-Los índices de MongoDB (unicidad, TTL de refresh tokens, orden de auditoría) se
-crean solos al arrancar. No hay migraciones que ejecutar.
+No hay migraciones: `mix nexo.setup` crea las colecciones con sus índices
+(unicidad, TTL de refresh tokens, orden de auditoría) y es idempotente. La
+aplicación también los asegura al arrancar.
 
 ```bash
 mix test        # suite completa
 mix precommit   # compila sin warnings, formatea y corre los tests
 ```
 
-> Los tests usan la base indicada en `MONGODB_URI_TEST` y un SIGMA simulado:
-> **nunca** tocan datos reales ni los servidores de la universidad. La suite
-> limpia sus colecciones en cada corrida, así que esa URI debe apuntar a una
-> base distinta de la de desarrollo.
+### Por qué hay dos bases
+
+| Base | Uso |
+|---|---|
+| `nexo` | La real. Es la que usan el servidor y el piloto. |
+| `nexo_test` | Solo la suite de tests. |
+
+MongoDB crea las bases con la primera escritura, así que hasta correr
+`mix nexo.setup` o levantar el servidor **solo aparece `nexo_test`** en Atlas:
+no es que el proyecto viva en una base de pruebas, es que la real aún no se
+había escrito.
+
+Las dos están separadas a propósito: la suite **borra sus colecciones en cada
+corrida** y un SIGMA simulado sustituye al real, así que jamás toca datos de
+verdad ni los servidores de la universidad. `MONGODB_URI_TEST` nunca debe
+apuntar a `nexo`.
 
 ## Docker
 
@@ -65,12 +101,19 @@ persistencia vive en Atlas.
 |---|---|---|
 | `GET` | `/health` | — |
 | `POST` | `/api/v1/auth/teacher/login` · `{usuario, clave}` | — |
+| `POST` | `/api/v1/auth/student/login` · `{usuario, clave}` | — |
 | `POST` | `/api/v1/auth/refresh` · `{refresh_token}` | — |
 | `GET` | `/api/v1/teacher/me` | `Authorization: Bearer` |
 | `GET` | `/api/v1/teacher/sections` | Bearer · autorizado |
 | `GET` | `/api/v1/teacher/sections/:cle_auto/students` | Bearer · autorizado |
 | `GET` | `/api/v1/teacher/sections/:cle_auto/grades?unidad=1` | Bearer · autorizado |
 | `GET` | `/api/v1/teacher/sections/:cle_auto/students/:codigo/grades` | Bearer · autorizado |
+| `GET` | `/api/v1/teacher/sections/:cle_auto/students/:codigo/shared/:modulo` | Bearer · autorizado · consentido |
+| `GET` | `/api/v1/student/consent` | Bearer (estudiante) |
+| `PUT` | `/api/v1/student/consent` · `{modulos: []}` | Bearer (estudiante) |
+| `DELETE` | `/api/v1/student/consent` | Bearer (estudiante) |
+| `GET` | `/api/v1/student/consent/history` | Bearer (estudiante) |
+| `PUT` | `/api/v1/student/snapshots/:modulo` · `{datos}` | Bearer (estudiante) |
 | `GET` | `/api/v1/admin/teachers` | `x-admin-key` |
 | `PUT` | `/api/v1/admin/teachers/:id/status` · `{estado}` | `x-admin-key` |
 | `GET` | `/api/v1/admin/audit?limit=100` | `x-admin-key` |

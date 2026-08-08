@@ -31,11 +31,31 @@ defmodule Nexo.Accounts do
   end
 
   @doc """
+  Documentos (DNI o código SIGMA) que quedan autorizados sin aprobación manual.
+
+  Se configuran con `AUTHORIZED_TEACHERS` (separados por coma) y no se
+  versionan: son datos personales y no tienen por qué vivir en el repositorio.
+  Sirve para arrancar el piloto sin tener que aprobarse uno mismo a mano.
+  """
+  def preauthorized_codes do
+    :nexo
+    |> Application.get_env(:authorized_teachers, "")
+    |> to_string()
+    |> String.split(",", trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  def preauthorized?(code), do: code in preauthorized_codes()
+
+  @doc """
   Login docente: primer acceso registra al docente como `"pendiente"`; accesos
-  siguientes refrescan el nombre si SIGMA lo trae más completo.
+  siguientes refrescan el nombre si SIGMA lo trae más completo. Los documentos
+  preautorizados entran directamente como `"autorizado"`.
   """
   def upsert_teacher_from_sigma(%{code: code} = profile) do
     now = Db.now()
+    preauthorized = preauthorized?(code)
 
     case get_teacher_by_code(code) do
       nil ->
@@ -43,9 +63,9 @@ defmodule Nexo.Accounts do
           "sigma_code" => code,
           "first_name" => profile.first_name,
           "last_name" => profile.last_name,
-          "status" => "pendiente",
-          "authorized_at" => nil,
-          "authorized_by" => nil,
+          "status" => if(preauthorized, do: "autorizado", else: "pendiente"),
+          "authorized_at" => if(preauthorized, do: now),
+          "authorized_by" => if(preauthorized, do: "preautorizado"),
           "inserted_at" => now,
           "updated_at" => now
         }
@@ -60,6 +80,20 @@ defmodule Nexo.Accounts do
           "last_name" => presence(profile.last_name) || teacher["last_name"],
           "updated_at" => now
         }
+
+        # La preautorización solo promueve a quien sigue esperando aprobación:
+        # a un docente suspendido lo dejó así un administrador y no se revierte
+        # por estar en la lista.
+        updates =
+          if preauthorized and teacher["status"] == "pendiente" do
+            Map.merge(updates, %{
+              "status" => "autorizado",
+              "authorized_at" => now,
+              "authorized_by" => "preautorizado"
+            })
+          else
+            updates
+          end
 
         apply_updates(teacher, updates)
     end

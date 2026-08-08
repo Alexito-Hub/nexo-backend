@@ -12,7 +12,7 @@ defmodule NexoWeb.AdminController do
     with true <- estado in Accounts.valid_statuses(),
          %{} = teacher <- Accounts.get_teacher(id),
          {:ok, updated} <- Accounts.set_teacher_status(teacher, estado, "admin") do
-      if estado == "suspendido", do: Auth.revoke_all_for_teacher(Db.id_to_string(teacher["_id"]))
+      if estado == "suspendido", do: Auth.revoke_all(:teacher, Db.id_to_string(teacher["_id"]))
 
       Audit.log(:teacher_status_change, %{
         actor_type: "admin",

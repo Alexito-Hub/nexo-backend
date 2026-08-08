@@ -65,11 +65,18 @@ defmodule Nexo.SigmaMock do
   end
 
   def verify_login("D001", "ok"), do: {:ok, profile("D001", "María", "Quispe", "tok-D001")}
+  # Documento incluido en AUTHORIZED_TEACHERS (ver config/test.exs).
+  def verify_login("PRE-001", "ok"), do: {:ok, profile("PRE-001", "Elena", "Vargas", "tok-D001")}
   def verify_login("D002", "ok"), do: {:ok, profile("D002", "Carlos", "Ramos", "tok-D002")}
 
   def verify_login("E001", "ok") do
     {:ok,
      %{code: "E001", first_name: "José", last_name: "Rojas", teacher?: false, token: "tok-E001"}}
+  end
+
+  def verify_login("E004", "ok") do
+    {:ok,
+     %{code: "E004", first_name: "Rosa", last_name: "Díaz", teacher?: false, token: "tok-E004"}}
   end
 
   def verify_login(_, _), do: {:error, :invalid_credentials}

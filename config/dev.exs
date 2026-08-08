@@ -62,4 +62,5 @@ config :nexo,
 
       Copia .env.example a .env y completa la cadena de conexión de MongoDB.
       """),
-  admin_api_key: System.get_env("ADMIN_API_KEY", "dev-admin-key")
+  admin_api_key: System.get_env("ADMIN_API_KEY", "dev-admin-key"),
+  authorized_teachers: System.get_env("AUTHORIZED_TEACHERS", "")

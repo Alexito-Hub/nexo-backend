@@ -31,7 +31,30 @@ defmodule NexoWeb.SectionController do
     end)
   end
 
+  def student_snapshot(conn, %{"cle_auto" => cle_auto, "codigo" => codigo, "modulo" => modulo}) do
+    respond(
+      conn,
+      Teaching.student_snapshot(teacher(conn), cle_auto, codigo, modulo),
+      fn snapshot ->
+        %{
+          modulo: snapshot.module,
+          actualizado: snapshot.updated_at,
+          datos: snapshot.payload
+        }
+      end
+    )
+  end
+
   defp respond(conn, {:ok, data}, view), do: json(conn, view.(data))
+
+  defp respond(conn, {:error, :not_granted}, _view) do
+    conn
+    |> put_status(:forbidden)
+    |> json(%{
+      error: "sin_consentimiento",
+      detail: "El estudiante no autorizó compartir estos datos."
+    })
+  end
 
   defp respond(conn, {:error, :forbidden}, _view) do
     conn

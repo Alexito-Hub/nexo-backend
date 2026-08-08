@@ -28,5 +28,9 @@ config :nexo,
       Copia .env.example a .env y completa la cadena de conexión de pruebas
       (debe apuntar a una base distinta de la de desarrollo).
       """),
+  # Pool pequeño: menos conexiones ociosas que Atlas pueda cerrar a mitad
+  # de la suite.
+  mongodb_pool_size: 2,
   sigma_client: Nexo.SigmaMock,
-  admin_api_key: "test-admin-key"
+  admin_api_key: "test-admin-key",
+  authorized_teachers: "PRE-001"
