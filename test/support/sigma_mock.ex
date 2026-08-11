@@ -69,6 +69,19 @@ defmodule Nexo.SigmaMock do
   def verify_login("PRE-001", "ok"), do: {:ok, profile("PRE-001", "Elena", "Vargas", "tok-D001")}
   def verify_login("D002", "ok"), do: {:ok, profile("D002", "Carlos", "Ramos", "tok-D002")}
 
+  # Estudiante cuyo código está en SYSTEM_ADMINS (ver config/test.exs): puede
+  # repartir el acceso al directorio.
+  def verify_login("ADMIN-SYS", "ok") do
+    {:ok,
+     %{
+       code: "62017241",
+       first_name: "Coordinación",
+       last_name: "Académica",
+       teacher?: false,
+       token: "tok-ADMIN"
+     }}
+  end
+
   def verify_login("E001", "ok") do
     {:ok,
      %{code: "E001", first_name: "José", last_name: "Rojas", teacher?: false, token: "tok-E001"}}

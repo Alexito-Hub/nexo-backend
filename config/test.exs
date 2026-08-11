@@ -33,4 +33,5 @@ config :nexo,
   mongodb_pool_size: 2,
   sigma_client: Nexo.SigmaMock,
   admin_api_key: "test-admin-key",
-  authorized_teachers: "PRE-001"
+  authorized_teachers: "PRE-001",
+  system_admins: "62017241"

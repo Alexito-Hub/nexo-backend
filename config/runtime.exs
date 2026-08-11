@@ -94,5 +94,6 @@ if config_env() == :prod do
       System.get_env("ADMIN_API_KEY") ||
         raise("Falta la variable de entorno ADMIN_API_KEY"),
     sigma_base_url: System.get_env("SIGMA_BASE_URL", "https://sigma.upla.edu.pe/api"),
-    authorized_teachers: System.get_env("AUTHORIZED_TEACHERS", "")
+    authorized_teachers: System.get_env("AUTHORIZED_TEACHERS", ""),
+    system_admins: System.get_env("SYSTEM_ADMINS", "")
 end

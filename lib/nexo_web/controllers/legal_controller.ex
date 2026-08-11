@@ -53,7 +53,7 @@ defmodule NexoWeb.LegalController do
     <body>
       <header>
         <h1>Política de Privacidad de Nexo</h1>
-        <p class="muted">Versión 2 · Vigente desde agosto de 2026.</p>
+        <p class="muted">Versión 3 · Vigente desde el 10 de agosto de 2026.</p>
       </header>
 
       <div class="box">
@@ -103,10 +103,28 @@ defmodule NexoWeb.LegalController do
         <strong>Tus credenciales y tus datos académicos se guardan únicamente en
         tu dispositivo</strong> y las peticiones viajan directamente entre tu
         dispositivo y los servidores de la UPLA, igual que lo haría el portal
-        oficial. La App <strong>no envía tu información a servidores propios de
-        Nexo</strong>. La única salida de datos hacia un tercero distinto de la
-        UPLA ocurre si tú, de forma voluntaria, conectas la integración con
-        Microsoft 365 (ver sección 5).
+        oficial.
+      </p>
+      <p>
+        Hay <strong>dos excepciones</strong>, y conviene que las conozcas:
+      </p>
+      <ul>
+        <li>
+          El apartado <strong>«Estudiantes»</strong>, un directorio al que solo
+          entran las cuentas autorizadas. Para comprobar esa autorización, tu
+          usuario y tu contraseña viajan <em>una sola vez</em> al servidor de
+          Nexo, que los verifica contra SIGMA y <strong>no los almacena</strong>;
+          a partir de ahí se usa una sesión temporal. Cada consulta a la ficha
+          de un estudiante queda registrada (ver sección 4).
+        </li>
+        <li>
+          La integración con <strong>Microsoft 365</strong>, si tú decides
+          conectarla (ver sección 5).
+        </li>
+      </ul>
+      <p>
+        Fuera de esos dos casos, la App no envía tu información a servidores
+        propios de Nexo ni a terceros.
       </p>
 
       <h2 id="datos">3. Datos que se tratan</h2>
@@ -137,6 +155,16 @@ defmodule NexoWeb.LegalController do
           <td>Idioma, tema, ajustes de notificaciones</td>
           <td>Solo en tu dispositivo</td>
         </tr>
+        <tr>
+          <td>Acceso al directorio <em>(solo cuentas autorizadas)</em></td>
+          <td>Tu código, quién te autorizó y desde cuándo</td>
+          <td>Servidor de Nexo (MongoDB)</td>
+        </tr>
+        <tr>
+          <td>Registro de consultas <em>(solo cuentas autorizadas)</em></td>
+          <td>Quién abrió qué ficha, cuándo y desde qué IP</td>
+          <td>Servidor de Nexo (MongoDB)</td>
+        </tr>
       </table>
       <p>
         Nexo <strong>no recopila</strong> identificadores publicitarios, tu
@@ -153,12 +181,20 @@ defmodule NexoWeb.LegalController do
             credenciales cada vez.</li>
         <li>Generar, en tu dispositivo, recordatorios de clases y pagos si
             activas las notificaciones.</li>
+        <li>Verificar si tu cuenta está autorizada al directorio de estudiantes
+            y, en ese caso, dejar constancia de cada consulta que hagas.</li>
       </ul>
       <p>
         La base legal es tu <strong>consentimiento</strong> al iniciar sesión y
         usar la App, y la <strong>ejecución de la relación</strong> que tú mismo
-        tienes con la universidad. Solo tratas tu propia información con tus
-        propias credenciales.
+        tienes con la universidad.
+      </p>
+      <p>
+        El <strong>registro de consultas</strong> del directorio existe
+        precisamente para protegerte: si alguien mira tu ficha, queda escrito
+        quién y cuándo. Puedes solicitarlo por los medios de contacto de la
+        sección 1. Ese registro no se borra a petición de quien consultó, porque
+        su razón de ser es poder demostrar lo ocurrido.
       </p>
 
       <h2 id="terceros">5. Terceros y transferencias internacionales</h2>

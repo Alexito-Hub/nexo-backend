@@ -94,6 +94,25 @@ defmodule Nexo.Db do
       %{key: %{student_code: 1, module: 1}, name: "student_module_unique", unique: true}
     ])
 
+    create_indexes("directory_access", [
+      %{key: %{code: 1}, name: "code_unique", unique: true},
+      %{key: %{status: 1}, name: "status_idx"}
+    ])
+
+    # `terms` es multiclave: sostiene la búsqueda por prefijo sin recorrer la
+    # colección. El resto acompaña al orden y a los filtros de la lista.
+    create_indexes("directory_students", [
+      %{key: %{code: 1}, name: "code_unique", unique: true},
+      %{key: %{terms: 1}, name: "terms_idx"},
+      %{key: %{last_name: 1, first_name: 1}, name: "name_idx"},
+      %{key: %{school: 1, cycle: 1}, name: "school_cycle_idx"}
+    ])
+
+    create_indexes("guardians", [
+      %{key: %{dni: 1}, name: "dni_unique", unique: true},
+      %{key: %{students: 1}, name: "students_idx"}
+    ])
+
     create_indexes("audit_log", [
       %{key: %{inserted_at: -1}, name: "inserted_at_idx"},
       %{key: %{actor_id: 1}, name: "actor_id_idx"}

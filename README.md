@@ -114,6 +114,17 @@ persistencia vive en Atlas.
 | `DELETE` | `/api/v1/student/consent` | Bearer (estudiante) |
 | `GET` | `/api/v1/student/consent/history` | Bearer (estudiante) |
 | `PUT` | `/api/v1/student/snapshots/:modulo` · `{datos}` | Bearer (estudiante) |
+| `GET` | `/api/v1/directory/access` | Bearer (docente o estudiante) |
+| `GET` | `/api/v1/directory/students?q=&escuela=&ciclo=&pagina=&limite=` | Bearer · con acceso |
+| `GET` | `/api/v1/directory/students/:codigo` | Bearer · con acceso |
+| `GET` | `/api/v1/directory/schools` | Bearer · con acceso |
+| `GET` | `/api/v1/directory/grants` | Bearer · administrador |
+| `PUT` | `/api/v1/directory/grants/:codigo` · `{estado, nota}` | Bearer · administrador |
+| `GET` | `/api/v1/directory/guardians` | Bearer · administrador |
+| `PUT` | `/api/v1/directory/guardians/:dni` · `{nombre, estudiantes, nuevo_pin, estado}` | Bearer · administrador |
+| `POST` | `/api/v1/guardian/login` · `{dni, pin}` | — |
+| `GET` | `/api/v1/guardian/students` | Bearer (apoderado) |
+| `GET` | `/api/v1/guardian/students/:codigo` | Bearer (apoderado) · vinculado |
 | `GET` | `/api/v1/admin/teachers` | `x-admin-key` |
 | `PUT` | `/api/v1/admin/teachers/:id/status` · `{estado}` | `x-admin-key` |
 | `GET` | `/api/v1/admin/audit?limit=100` | `x-admin-key` |
@@ -130,6 +141,7 @@ de build de Docker; `.env.example` documenta las variables.
 | `MONGODB_URI` | Conexión a MongoDB (obligatoria) |
 | `MONGODB_URI_TEST` | Base de pruebas (solo `MIX_ENV=test`) |
 | `ADMIN_API_KEY` | Cabecera `x-admin-key` del área de administración |
+| `SYSTEM_ADMINS` | Quién puede repartir el acceso al directorio de estudiantes |
 | `SECRET_KEY_BASE` | Firma de tokens y cookies (solo producción) |
 | `SIGMA_BASE_URL` | Sobrescribe el host de SIGMA |
 | `PHX_HOST`, `PORT` | Host público y puerto |
@@ -138,6 +150,58 @@ En producción el arranque falla si falta `MONGODB_URI`, `ADMIN_API_KEY` o
 `SECRET_KEY_BASE`: es preferible no levantar el servicio a levantarlo con
 valores por defecto inseguros.
 
+### Directorio de estudiantes
+
+Apartado aparte del modo estudiante y del modo docente. Muestra la lista de
+estudiantes y la ficha de cada uno, y **quien entra no lo decide el tipo de
+cuenta sino el acceso concedido**: un estudiante autorizado entra, un docente
+sin autorizar no.
+
+El papel del backend aquí es el de portero. El directorio definitivo es
+SIGMA/Intranet; mientras no haya permiso institucional para leerlo, la
+colección `directory_students` hace de fuente con datos de prototipo que
+tienen la forma exacta de los reales (ver `Nexo.Directory.Prototype`):
+
+```sh
+mix nexo.directory 120     # genera y carga el directorio de prototipo
+```
+
+Dos niveles de acceso, a propósito distintos:
+
+* **Administradores** (`SYSTEM_ADMINS`) — reparten el acceso y entran siempre.
+  Van en el entorno y no en la base porque quien reparte permisos no debe
+  poder concedérselos desde dentro de la aplicación.
+* **Autorizados** (colección `directory_access`) — los concede un
+  administrador desde la app y se revocan en caliente. Revocar no borra el
+  documento: lo marca, para que quede el histórico de quién tuvo acceso.
+
+Abrir la ficha de una persona se audita nominalmente (`directory_record_read`),
+igual que conceder o revocar un acceso.
+
+### Apoderados (padres y tutores)
+
+Un apoderado no tiene cuenta en SIGMA, así que entra por su propia puerta con
+**DNI + PIN** y solo alcanza la ficha de sus hijos. El administrador crea el
+vínculo y recibe el PIN una única vez:
+
+```sh
+curl -X PUT https://…/api/v1/directory/guardians/44556677 \
+  -H "Authorization: Bearer <token de administrador>" \
+  -H 'Content-Type: application/json' \
+  -d '{"nombre":"Rosa","estudiantes":["U22059D"]}'
+# → {"apoderado":{...},"pin":"322628"}   ← anótalo, no se puede volver a leer
+```
+
+El DNI identifica pero no autentica —lo conoce cualquiera que tenga el
+documento delante—, por eso el PIN es obligatorio. Se guarda derivado con
+PBKDF2-SHA256 (120 000 iteraciones, sal por apoderado) y **cinco intentos
+fallidos bloquean quince minutos**: seis dígitos se agotan a fuerza bruta en
+minutos si nadie lo impide. Un DNI inexistente y un PIN incorrecto devuelven
+exactamente la misma respuesta, para no delatar qué DNIs están registrados.
+
+Cada apertura de ficha queda auditada (`guardian_record_read`), igual que las
+del directorio, y revocar el vínculo corta el acceso en la siguiente petición.
+
 Respuestas de error propias de los datos académicos:
 
 | Estado | `error` | Significado |
@@ -145,6 +209,10 @@ Respuestas de error propias de los datos académicos:
 | `403` | `no_autorizado` | El docente aún no está en la allowlist |
 | `403` | `seccion_ajena` | La sección no le pertenece (queda auditado) |
 | `401` | `sesion_sigma_expirada` | Caducó el token de SIGMA: reiniciar sesión |
+| `403` | `sin_acceso_directorio` | La cuenta no está autorizada al directorio |
+| `403` | `solo_administradores` | Repartir el acceso es cosa de `SYSTEM_ADMINS` |
+| `403` | `estudiante_ajeno` | El apoderado no está vinculado a ese estudiante |
+| `429` | `acceso_bloqueado` | Demasiados PIN fallidos: espera y reintenta |
 
 ## Siguientes fases
 

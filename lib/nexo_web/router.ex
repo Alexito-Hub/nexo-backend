@@ -17,6 +17,22 @@ defmodule NexoWeb.Router do
     plug NexoWeb.RequireAuthorizedPlug
   end
 
+  pipeline :actor_auth do
+    plug NexoWeb.ActorPlug
+  end
+
+  pipeline :guardian_auth do
+    plug NexoWeb.GuardianAuthPlug
+  end
+
+  pipeline :directory_access do
+    plug NexoWeb.RequireDirectoryPlug
+  end
+
+  pipeline :directory_admin do
+    plug NexoWeb.RequireDirectoryPlug, [:admin]
+  end
+
   pipeline :admin do
     plug NexoWeb.AdminPlug
   end
@@ -69,6 +85,50 @@ defmodule NexoWeb.Router do
           SectionController,
           :student_snapshot
     end
+  end
+
+  # Directorio de estudiantes: apartado propio, abierto a docentes y a
+  # estudiantes por igual. Lo que decide no es el tipo de cuenta sino el
+  # acceso concedido (ver `Nexo.DirectoryAccess`).
+  scope "/api/v1/directory", NexoWeb do
+    pipe_through [:api, :actor_auth]
+
+    # Única ruta que no exige acceso: sirve para saber si se tiene.
+    get "/access", DirectoryController, :access
+
+    scope "/" do
+      pipe_through :directory_access
+
+      get "/students", DirectoryController, :index
+      get "/students/:codigo", DirectoryController, :show
+      get "/schools", DirectoryController, :schools
+    end
+
+    # Repartir el acceso es cosa de los administradores del sistema.
+    scope "/" do
+      pipe_through :directory_admin
+
+      get "/grants", DirectoryController, :grants
+      put "/grants/:codigo", DirectoryController, :set_grant
+
+      # Apoderados: quién puede ver a qué estudiante con DNI + PIN.
+      get "/guardians", DirectoryController, :guardians
+      put "/guardians/:dni", DirectoryController, :set_guardian
+    end
+  end
+
+  # Acceso de apoderados: sin cuenta de la UPLA, solo la ficha de sus hijos.
+  scope "/api/v1/guardian", NexoWeb do
+    pipe_through :api
+
+    post "/login", GuardianController, :login
+  end
+
+  scope "/api/v1/guardian", NexoWeb do
+    pipe_through [:api, :guardian_auth]
+
+    get "/students", GuardianController, :students
+    get "/students/:codigo", GuardianController, :show
   end
 
   scope "/api/v1/admin", NexoWeb do

@@ -17,12 +17,12 @@ defmodule Nexo.Auth do
   @refresh_ttl_days 30
   @salt "nexo access v2"
 
-  @type subject :: :teacher | :student
+  @type subject :: :teacher | :student | :guardian
 
   def access_ttl_seconds, do: @access_ttl
 
   @spec sign_access_token(subject(), String.t()) :: String.t()
-  def sign_access_token(type, id) when type in [:teacher, :student] do
+  def sign_access_token(type, id) when type in [:teacher, :student, :guardian] do
     Phoenix.Token.sign(NexoWeb.Endpoint, @salt, %{type: type, id: id})
   end
 
@@ -37,7 +37,7 @@ defmodule Nexo.Auth do
 
   def verify_access_token(_), do: {:error, :invalid_token}
 
-  def issue_refresh_token(type, id) when type in [:teacher, :student] do
+  def issue_refresh_token(type, id) when type in [:teacher, :student, :guardian] do
     raw = Base.url_encode64(:crypto.strong_rand_bytes(32), padding: false)
 
     {:ok, _} =

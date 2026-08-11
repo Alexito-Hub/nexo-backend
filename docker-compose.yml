@@ -19,6 +19,7 @@ services:
       SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
       SIGMA_BASE_URL: ${SIGMA_BASE_URL:-https://sigma.upla.edu.pe/api}
       AUTHORIZED_TEACHERS: ${AUTHORIZED_TEACHERS:-}
+      SYSTEM_ADMINS: ${SYSTEM_ADMINS:-}
       PHX_HOST: ${PHX_HOST:-localhost}
       PHX_SERVER: "true"
       PORT: "4000"
